@@ -1,0 +1,1232 @@
+---
+title: "Econometrics - Erasmus Uni Rotterdam"
+author: "Aviandito"
+date: "5/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+## Train Excercise 1.1
+
+### Question a
+
+**Make two histograms, one of expenditures and the other of age. Make also a scatter diagram with expenditures
+on the vertical axis versus age on the horizontal axis.**
+
+```{r}
+exer11 <- read_table2('Lecture_1-1/TrainExer11.txt') %>%
+  select(-Observ.)
+
+glimpse(exer11)
+```
+
+```{r}
+qplot(Expenditures, data = exer11, binwidth = 1)
+```
+```{r}
+qplot(Age, data = exer11, binwidth = 1)
+```
+
+```{r}
+qplot(x = Age, y = Expenditures, data = exer11)
+```
+
+### Question b
+
+**In what respect do the data in this scatter diagram look different from the case of the sales and price data
+discussed in the lecture?**
+
+The expenditure histogram has bimodal distribution, and this is further supported by the scatterplot where there are two clusters of users.
+
+### Question c
+
+**Propose a method to analyze these data in a way that assists the travel agent in making recommendations to
+future clients.**
+
+It is possibly better to separate these two clusters into two models. Age 40 might be a good threshold for the division.
+
+### Question d
+
+**Compute the sample mean of expenditures of all 26 clients.**
+
+```{r}
+exer11 %>%
+  summary()
+```
+
+The mean expenditures of all clients is 101.1
+
+### Question e
+
+**Compute two sample means of expenditures, one for clients of age forty or more and the other for clients of
+age below forty.**
+
+```{r}
+exer11 %>%
+  filter(Age < 40) %>%
+  summary()
+```
+
+```{r}
+exer11 %>%
+  filter(Age >= 40) %>%
+  summary()
+```
+
+Customers below 40 has mean expenditure of 106.4, while customers 40 or older has mean expenditure of 95.85
+
+### Question f
+
+**What daily expenditures would you predict for a new client of fifty years old? And for someone who is twenty-five
+years old?**
+
+Based on the scatterplot above, a new client of 50 y.o. probably will spend around 98, while a client of 25 y.o will probably spend around 105. Or, based on the solution, we can directly guess by the mean, which is 95.85 and 106.4, respectively.
+
+## Train Exercise 1-3
+
+Dataset TrainExer13 contains the winning times (W) of the Olympic 100-meter finals (for men) from 1948 to 2004.
+The calendar years 1948-2004 are transformed to games (G) 1-15 to simplify computations. A simple regression
+model for the trend in winning times is Wi = α + βGi + εi
+
+### Question a
+
+**Compute a and b, and determine the values of R^2 and s**
+
+```{r}
+exer13 <- read_table2('Lecture_1-3/TrainExer13.txt') %>%
+  select(Winning, Game)
+```
+
+```{r}
+qplot(y = Winning, x = Game, data = exer13)
+```
+
+```{r}
+exer13 <- exer13 %>%
+  mutate(Winning_demeaned = Winning - mean(Winning),
+         Game_demeaned = Game - mean(Game),
+         cov = Winning_demeaned * Game_demeaned,
+         G_var = Game_demeaned**2)
+
+exer13
+```
+
+```{r}
+b_calc <- exer13 %>%
+  summarise(W_G_cov = sum(cov),
+            G_var = sum(G_var),
+            b = W_G_cov / G_var)
+
+b_calc
+```
+
+```{r}
+a = mean(exer13$Winning) - b_calc$b * mean(exer13$Game)
+
+a
+```
+
+```{r}
+exer13 <- exer13 %>%
+  mutate(e = Winning - a - (b_calc$b * Game))
+
+exer13
+```
+
+```{r}
+rsq_calc <- exer13 %>%
+  summarise(e_var = sum(e ** 2),
+            W_var = sum(Winning_demeaned ** 2),
+            r_squared = 1 - (e_var / W_var),
+            s = ((1/(n()-2)) * e_var) ** 0.5)
+
+rsq_calc
+```
+
+Based on the calculation:
+
+* a = 10.386
+* b = -0.038
+* R^2 = 0.673
+* s = 0.122
+
+### Question b
+
+**Are you confident on the predictive ability of this model? Motivate your answer.**
+
+Based on the R^2 metric, the model is quite satisfactory as it can explain 67.3% of the Winning time variance. Furthermore, residual plot below shows that the model performed quite well with e < 0.1 for most Games except Games 3,5,6, and 9.
+
+```{r}
+qplot(x = Game, y = e, data = exer13)
+```
+
+### Question c
+
+**What prediction do you get for 2008, 2012, and 2016? Compare your predictions with the actual winning times.**
+
+2008, 2012, and 2016 are Games 16, 17, 18. Therefore:
+
+```{r}
+predict_game <- c(16, 17, 18)
+
+Winning_predict = a + b_calc$b * predict_game
+
+Winning_predict
+```
+
+Predicted winning time for 2008, 2012, and 2016 based on the model are 9.778, 9.740, and 9.702 respectively.
+
+```{r}
+Winning_actual <- c(9.69, 9.63, 9.81)
+
+error <- Winning_actual - Winning_predict
+
+error
+```
+
+The error of the prediction is still around 0.1
+
+## Train Excercise 1.5
+
+In Lecture 1.5, we applied simple regression for data on winning times on the Olympic 100 meter (athletics). We
+computed the regression coefficients a and b for two trend models, one with a linear trend and one with a nonlinear
+trend. In a test question, you created forecasts of the winning times for both men and women in 2008 and 2012.
+Of course, you can also forecast further ahead in the future. In fact, it is even possible to predict when men and
+women would run equally fast, if the current trends persist.
+
+```{r}
+exer15 <- read_table2('Lecture_1-5/TrainExer15.txt')
+
+exer15
+```
+
+### Question a
+
+**Show that the linear trend model predicts equal winning times at around 2140.**
+
+```{r}
+W_men_lin <- function(Gi){
+  return(10.386 - 0.038 * Gi)
+}
+
+W_women_lin <- function(Gi){
+  return(11.606 - 0.063 * Gi)
+}
+
+W_men_log <- function(Gi){
+  log_wi = 2.341 - 0.0038 * Gi
+  return(exp(log_wi))
+}
+
+W_women_log <- function(Gi){
+  log_wi = 2.452 - 0.0056 * Gi
+  return(exp(log_wi))
+}
+```
+
+Year 2140 is Game 49
+
+```{r}
+W_men_lin(49)
+```
+```{r}
+W_women_lin(49)
+```
+
+```{r}
+ggplot(data.frame(x = 1:200), aes(x)) +
+  stat_function(fun = W_men_lin, color = 'blue') +
+  stat_function(fun = W_women_lin, color = 'red') +
+  geom_vline(xintercept = 49, linetype = 'dotted')
+```
+
+### Question b
+
+**Show that the nonlinear trend model predicts equal winning times at around 2192**
+
+Year 2192 is Game 62
+
+```{r}
+W_men_log(62)
+```
+
+```{r}
+W_women_log(62)
+```
+
+```{r}
+ggplot(data.frame(x = 1:1000), aes(x)) +
+  stat_function(fun = W_men_log, color = 'blue') +
+  stat_function(fun = W_women_log, color = 'red') +
+  geom_vline(xintercept = 62, linetype = 'dotted')
+```
+
+### Question c
+
+**Show that the linear trend model predicts equal winning times of approximately 8.53 seconds**
+
+Answered in the Question a above.
+
+### Question d
+
+**Comment on these outcomes and on the underlying regression models**
+
+As seen in the figure above, at some point (around game 180, or year 2664) the linear model will return < 0 winning time, which is physically impossible. Meanwhile, the log model will not return < 0 winning time, even if we're projecting for longer time. 
+
+Given that the performance between the two is not really different in the short run, then the log model might be a better model since it is more grounded in the physical reality. 
+
+A more realistic log model would create a limit on physically fastest time a human can run (i.e. if leg of the tallest human is fully extended and no lag between steps), not approaching 0 seconds like in the model above
+
+## Train Excercise 2-1
+
+### Question a
+
+**Use dataset TrainExer21 to regress log-wage on a constant and the gender dummy ‘Female’, and check the result presented in Lecture 2.1 that log(Wage) = 4.73 − 0.25Female + e.**
+
+```{r}
+exer21 <- read_table2('Lecture_2-1/TrainExer21.txt')
+```
+
+```{r}
+model21 <- lm(data = exer21, LogWage ~ Female)
+
+summary(model21)
+```
+
+### Question b
+
+**Let e be the series of residuals of the regression in part (a). Perform two regressions:**
+
+**(i) e on a constant and education;**
+**(ii) e on a constant and the part-time job dummy.**
+
+```{r}
+exer21$residuals <- residuals(model21)
+```
+
+```{r}
+summary(lm(data = exer21, residuals ~ Educ))
+```
+
+```{r}
+exer21 %>%
+  ggplot(aes(y = residuals, x = Educ)) +
+  geom_point() +
+  geom_smooth(method = 'lm')
+```
+
+```{r}
+summary(lm(data = exer21, residuals ~ Parttime))
+```
+
+```{r}
+exer21 %>%
+  ggplot(aes(y = residuals, x = Parttime)) +
+  geom_point() +
+  geom_smooth(method = 'lm')
+```
+
+### Question c
+
+**Comment on the outcomes of regressions (i) and (ii) of part (b).**
+
+Based on the regressions, there is a correlation between the residuals and Education and Part Time. The summary shows that the effect of Education is relatively stronger than part time dummy. The regressions in part b shows that the total effect regression in part a included effects of education and part time jobs towards wage.
+
+## Train Excercise 3.1
+
+### Question a
+
+**Use dataset TrainExer31 to regress the change in the log of the S&P500 index on a constant and the book-to-market ratio, and check the result presented in Lecture 3.1 that change in log(SP500 index) = 0.177 − 0.213 × Book-to-market + e.**
+
+```{r}
+exer31 <- read_table2('Lecture_3-1/TrainExer 3-1-corrected.txt')
+
+head(exer31)
+```
+
+```{r}
+exer31_chg <- exer31 %>%
+  select(Year, Index, BookMarket) %>%
+  mutate(log_index = log(Index),
+         log_index_change = log_index - lag(log_index))
+
+model31 <- lm(data = exer31_chg, log_index_change ~ BookMarket)
+
+summary(model31)
+```
+
+### Question b
+
+**Now regress the S&P500 index (without any kind of transformation) on a constant and the book-to-market ratio. Consider whether the effect of book-to-market on the index is significant in this specification.**
+
+```{r}
+model31b <- lm(data = exer31_chg, Index ~ BookMarket)
+
+summary(model31b)
+```
+
+Based on the model above, BookMarket ratio is still significant in this specification
+
+### Question c
+
+**Make a plot of the residuals e from both question (a) and (b) and comment on the difference.**
+
+```{r}
+exer31_chg$base_residual <- model31b$residuals
+```
+
+Log change model residual
+
+```{r}
+exer31_chg %>%
+  drop_na() %>%
+  mutate(log_chg_residual = model31$residuals) %>%
+  ggplot(aes(x = Year, y = log_chg_residual)) +
+  geom_point()
+```
+
+Base model residual
+
+```{r}
+exer31_chg$base_residual <- model31b$residuals
+qplot(data = exer31_chg, x = Year, y = base_residual)
+```
+
+Plots above shows that the residuals for log change model is randomly distributed and has mean 0. There is no pattern if we plot it across the year. Meanwhile the residual plot of base model with no transformation has a non-random distribution, with a strong pattern following the Index trend. This indicates the violation of linear regression assumption.
+
+## Train Exercise 3-3
+
+### Question b
+
+**Use dataset TrainExer33 to regress the change in the log of the S&P500 index on a constant, the book-to-market ratio, and the square of the book-to-market ratio. Is the relationship between the index and book-to-market quadratic?**
+
+```{r}
+exer31_chg$BookMarket_sq <- (exer31_chg$BookMarket)**2
+```
+
+
+```{r}
+model33 <- lm(data = exer31_chg, log_index_change ~ BookMarket + BookMarket_sq)
+
+summary(model33)
+```
+
+Regression result shows insignificant effect of the square of book market ratio. Therefore relationship might not be quadratic. Note that we cannot solve the question by only plotting the variables.
+
+### Question c
+
+**Define a dummy that is 1 for 1980 and all following years. Regress the change in the log of the S&P500 index on a constant, the book-to-market ratio, and an interaction between the book-to-market ratio and the just-defined dummy. Is the relationship between the index and book-to-market stable over the pre- and post-1980 period?**
+
+```{r}
+exer31_chg <- exer31_chg %>%
+  mutate(is_1980_younger = ifelse(Year >= 1980, 1, 0))
+
+model33_dummy <- lm(data = exer31_chg, log_index_change ~ BookMarket + BookMarket:is_1980_younger)
+
+summary(model33_dummy)
+```
+
+The interaction term of BookMarket and the dummy variable is insignificant. Therefore, we can say that the relationship between index and book to market is stable over the pre and post 1980 period.
+
+## Train Exercise 3-5
+
+### Question a
+
+**Replicate the R2 values of slide 7 from lecture 3.5. In particular, show that a regression of the log equity premium (the variable LogEqPrem in the data file) on a constant and all five explanatory variables gives an R2 of 10.8%, and that a regression of the log equity premium on a constant and only book-to-market gives an R2 of 6.3%. Then, based on these values, argue whether the additional four variables are significant when comparing the full with the book-to-market only model.**
+
+```{r}
+exer35 <- read_table2('Lecture_3-5/TrainExer 3-5-corrected.txt')
+
+head(exer35)
+```
+
+```{r}
+full_model_35 <- lm(data = exer35, LogEqPrem ~ BookMarket + NTIS + DivPrice + EarnPrice + Inflation)
+
+summary(full_model_35)
+```
+
+Full model has R2 of 10.85%, which is similar with the regression in the lecture
+
+```{r}
+spec_model_35 <- lm(data = exer35, LogEqPrem ~ BookMarket)
+
+summary(spec_model_35)
+```
+
+Specific model has R2 of 6.34%, which is similar with the regression in the lecture.
+
+To answer whether adding four variables are significant in comparing full vs. special model, we do F-test between the two models.
+
+```{r}
+anova(spec_model_35, full_model_35)
+```
+
+Based on the test between the two model above, the F-test result is not statsig. Therefore adding four more variables is not significant.
+
+### Question b
+
+**Replicate the RESET statistic of slide 8 of Lecture 3.5. Proceed in the following steps. First regress the log equity premium on a constant and the book-to-market ratio. Then store the fitted log equity premium based on the output from this regression. Finally, regress the log equity premium on a constant, the book-to-market ratio, and the square of the fitted log equity premium that was stored in the previous step. The RESET test statistic is the statistic of an F-test on the fitted log equity premium parameter.**
+
+```{r}
+exer35$log_eq_prem_pred <- predict(spec_model_35)
+```
+
+```{r}
+reset_test_spec_model_35 <- lm(data = exer35, LogEqPrem ~ BookMarket + I(log_eq_prem_pred**2))
+
+anova(spec_model_35, reset_test_spec_model_35)
+```
+
+Based on the F-test above, we fail to reject H0 of correct specification of the model (i.e. in this case, BookMarket has a quadratic relationship with LogEqPrem). Meaning that our model is already correctly specified.
+
+### Question c
+
+**Replicate the Chow break statistic of slide 8 of Lecture 3.5. Proceed in the following steps. First regress the log equity premium on a constant and the book-to-market ratio and store the sum of squared residuals. Then perform the same regression for both the subsample of observations over 1927-1979, and the subsample of observations over 1980-2013. For both regressions, store the sum of squared residuals. Use these sum of squared residuals to calculate the Chow break statistic.**
+
+```{r}
+s0 <- sum(spec_model_35$residuals**2)
+s1 <- sum(lm(data = filter(exer35, Year < 1980), LogEqPrem ~ BookMarket)$residuals**2)
+s2 <- sum(lm(data = filter(exer35, Year >= 1980), LogEqPrem ~ BookMarket)$residuals**2)
+
+k_model35 <- 2
+n_model35 <- 87
+```
+
+```{r}
+chow_break_f_model35 <- ((s0 - (s1+s2)) / k_model35) / ((s1+s2) / (n_model35 - 2 * k_model35))
+```
+
+```{r}
+pf(q = chow_break_f_model35, 
+   df1 = k_model35, # numerator = k
+   df2 = n_model35 - 2 * k_model35, # denominator = n - 2k
+   lower.tail=FALSE)
+```
+
+The Chow break test statistic's p-value is 0.10982. It means that we fail to reject H0 of no break between pre and post 1980. Meaning that our model performed well before and after 1980
+
+### Question d
+
+**Replicate the Chow forecast statistic of slide 8 of Lecture 3.5. No new regression is required, you should be able to base this result on the regressions you have run so far**
+
+We can use the splitted dataset from Question c, with pre-1980 data having 53 rows, and post-1980 data having 34 rows. Chow forecast is done to test whether there is a break of parameter in train-test like splitting.
+
+```{r}
+n1_model35 <- nrow(filter(exer35, Year < 1980))
+n2_model35 <- nrow(filter(exer35, Year >= 1980))
+
+chow_forecast_f_model35 <- ((s0-s1) / n2_model35) / (s1 / (n1_model35 - k_model35))
+
+pf(q = chow_forecast_f_model35, 
+   df1 = n2_model35, # numerator = n2
+   df2 = n1_model35 - k_model35, # denominator = n1 - k
+   lower.tail=FALSE)
+```
+
+The Chow forecast test statistic's p-value is 0.7943. It means that we fail to reject H0 of no parameter break between dataset 1 (pre-1980) and dataset 2 (post-1980)
+
+## Train Exercise 4-2
+
+In this exercise we reconsider the example from lecture 4.1 where an analyst models sales of ice cream over time as a function of price and where price is possibly endogenous due to strategic behavior of the salesperson. In this case the salesperson knows that when a particular event is organized, demand tends to be high. Therefore she may set a high price when there is such an event.
+
+We consider the following data generating process
+Sales = 100 − 1 × Price + αEvent + ε1
+Price = 5 + βEvent + ε2,
+
+where Event is a 0/1 dummy variable indicating whether an event took place at a point in time. However, when trying to estimate the price coefficient the analyst does not have the Event dummy variable and simply regresses Sales on a constant and Price.
+
+The dataset TrainExer42 contains sales and price data for different values of α and β. For each scenario the same simulated values for ε1 and ε2 were used. Specifically, the data contains 4 price series and 16 sales series. Price variables “PriceB” give the price assuming that β =B, for B= 0, 1, 5, 10. Sales variables “SalesA B” give the sales for α =A and β =B, where A also takes the values 0, 1, 5, 10.
+
+### Question a
+
+**First consider the case where the event only directly affects price (α = 0). Estimate and report the price coefficients under all 4 scenarios for β and calculate the R2 for all these regressions. Do the estimated price coefficients signal any endogeneity problem for these values of α and β? Can you also explain the pattern you find for the R2?**
+
+```{r}
+exer42 <- read_csv('Lecture_4-2/TrainExer42.txt')
+```
+
+```{r}
+model42_0 <- lm(data = exer42, SALES0_0 ~ PRICE0)
+model42_1 <- lm(data = exer42, SALES0_1 ~ PRICE1)
+model42_5 <- lm(data = exer42, SALES0_5 ~ PRICE5)
+model42_10 <- lm(data = exer42, SALES0_10 ~ PRICE10)
+
+exer42a_sum <- tibble(A = '0',
+       B = c('0', '1', '5', '10'),
+       beta = c(coefficients(model42_0)[[2]], coefficients(model42_1)[[2]], coefficients(model42_5)[[2]], coefficients(model42_10)[[2]]),
+       r_squared = c(summary(model42_0)$r.squared, summary(model42_1)$r.squared, summary(model42_5)$r.squared, summary(model42_10)$r.squared))
+
+exer42a_sum
+```
+
+In the scenario of alpha = 0 (i.e. event did not take place), the coefficient of beta is stable at almost -1 in all scenario. It means that price is not endogenous, since event does not affect sales.
+
+In terms of R-squared, with the increase of beta, the value of R-squared is also increase. Meaning that as variation in sales increases, beta can help in explaining it.
+
+### Question b
+
+**Repeat the exercise above, but now consider the case where the event only directly affects sales, that is, set β = 0 and check the results for the four different values of α.**
+
+```{r}
+model42_B0_0 <- lm(data = exer42, SALES0_0 ~ PRICE0)
+model42_B0_1 <- lm(data = exer42, SALES1_0 ~ PRICE0)
+model42_B0_5 <- lm(data = exer42, SALES5_0 ~ PRICE0)
+model42_B0_10 <- lm(data = exer42, SALES10_0 ~ PRICE0)
+
+exer42b_sum <- tibble(A = c('0', '1', '5', '10'),
+       B = '0',
+       beta = c(coefficients(model42_B0_0)[[2]], coefficients(model42_B0_1)[[2]], coefficients(model42_B0_5)[[2]], coefficients(model42_B0_10)[[2]]),
+       r_squared = c(summary(model42_B0_0)$r.squared, summary(model42_B0_1)$r.squared, summary(model42_B0_5)$r.squared, summary(model42_B0_10)$r.squared))
+
+exer42b_sum
+```
+
+As A increases, the beta for Price slightly decreases. It is still around -1. Price is not endogenous since event directly affects sales. R2 drops significantly as the A increases, meaning that events bring higher variance of sales.
+
+### Question c
+
+**Finally consider the parameter estimates for the cases where the event affects price and sales, that is, look at α = β = 0, 1, 5, 10. Can you see the impact of endogeneity in this case?**
+
+```{r}
+model42_AB_0 <- lm(data = exer42, SALES0_0 ~ PRICE0)
+model42_AB_1 <- lm(data = exer42, SALES1_1 ~ PRICE1)
+model42_AB_5 <- lm(data = exer42, SALES5_5 ~ PRICE5)
+model42_AB_10 <- lm(data = exer42, SALES10_10 ~ PRICE10)
+
+exer42c_sum <- tibble(A = c('0', '1', '5', '10'),
+       B = c('0', '1', '5', '10'),
+       beta = c(coefficients(model42_AB_0)[[2]], coefficients(model42_AB_1)[[2]], coefficients(model42_AB_5)[[2]], coefficients(model42_AB_10)[[2]]),
+       r_squared = c(summary(model42_AB_0)$r.squared, summary(model42_AB_1)$r.squared, summary(model42_AB_5)$r.squared, summary(model42_AB_10)$r.squared))
+
+exer42c_sum
+```
+
+Omission of Event leads to correlation between price and error. Price is endogenous in this case.
+
+## Train Exercise 4-4
+
+Questions
+In this exercise we study the gasoline market and look at the relation between consumption and price in the USA.
+We will use yearly data on these variables from 1977 to 1999. Additionally we have data on disposable income, and
+some price indices. More precisely we have
+
+* GC: log real gasoline consumption;
+* PG: log real gasoline price index;
+* RI: log real disposable income;
+* RPT: log real price index of public transport;
+* RPN: log real price index of new cars;
+* RPU: log real price index of used cars.
+
+We consider the following model
+GC = β1 + β2PG + β3RI + ε.
+
+### Question a
+
+**Give an argument why the gasoline price may be endogenous in this equation.**
+
+There is a strategic decision for gasoline price, where in times of higher demand, gasoline price can be set higher, vice versa. Endogeneity might come from this decisions.
+
+### Question b
+
+**Use 2SLS to estimate the price elasticity (β2). Use a constant, RI, RPT, RPN, and RPU as instruments.**
+
+```{r}
+exer44 <- read_csv('Lecture_4-4/TrainExer44.txt')
+
+exer44
+```
+
+First step: Regress PG on instruments
+
+```{r}
+stage_1_2sls <- lm(data = exer44, PG ~ RI + RPN + RPT + RPU)
+
+summary(stage_1_2sls)
+```
+
+Second step: Regress GC on PG_hat (from previous step) and RI
+
+```{r}
+exer44$PG_hat <- predict(stage_1_2sls)
+
+stage_2_2sls <- lm(data = exer44, GC ~ PG_hat + RI)
+
+summary(stage_2_2sls)
+```
+
+The slope of PG_hat is -0.54. Therefore, for every 1% increase in gasoline price, gasoline consumption declines by -0.54%
+
+OLS estimation yields weaker effect of price towards consumption.
+
+```{r}
+exer44_ols <- lm(data = exer44, GC ~ PG + RI)
+
+summary(exer44_ols)
+```
+
+### Question c
+
+**Perform a Sargan test to test whether the five instruments are correlated with ε. What do you conclude?**
+
+```{r}
+exer44$e_2sls <- residuals(stage_2_2sls)
+
+sargan_regression <- lm(data = exer44, e_2sls ~ RI + RPN + RPT + RPU)
+
+summary(sargan_regression)
+```
+
+```{r}
+sargan_stat <- nrow(exer44) * summary(sargan_regression)$r.squared
+
+pchisq(sargan_stat, 
+       df = 2, # df = k unrestricted model - k restricted model 
+       lower.tail = FALSE)
+```
+
+The Sargan test result is not statistically significant at p=0.05. Therefore the null hypothesis of no correlation between Z and e cannot be rejected, and the set of instruments are valid.
+
+## Train Exercise 4.5
+
+In this exercise we reconsider the example of lecture 4.5. In this lecture we related the Grade Point Average [GPA] of learners in an engineering MOOC to the participation in a preparatory course. The dataset contains the following variables
+
+* GPA: Grade Point Average in Engineering MOOC
+* Gender: 0/1 dummy for gender (1: male, 0: female)
+* Participation: 0/1 dummy for participation in a preparatory mathematics course (1: did participate, 0: did not participate)
+* Email: 0/1 dummy for receiving an email invitation to take the preparatory course (1: received invitation, 0: did not receive invitation)
+
+### Question a
+
+**Redo the OLS estimation of the coefficients in a model that explains GPA using a constant, gender and preparatory course participation. Also calculate standard errors and t-values. Confirm that you obtain the same results as mentioned in the lecture**
+
+```{r}
+exer45 <- read_csv('Lecture_4-5/TrainExer45.txt')
+
+ols_45 <- lm(data = exer45, GPA ~ PARTICIPATION + GENDER)
+
+summary(ols_45)
+```
+
+### Question b
+
+**Use the email dummy as an instrument to perform 2SLS estimation. First do the first-stage regression**
+
+**Participation = γ1 + γ2Gender + γ3Email + η.**
+
+**Next calculate the predicted values according to this regression and perform OLS on the model**
+
+**GPA = β1 + β2Gender + β3Participation + d ε.**
+
+**Confirm that the parameter estimates that you obtain are the same as reported in the lecture.**
+
+```{r}
+first_stage_2sls_45 <- lm(data = exer45, PARTICIPATION ~ GENDER + EMAIL)
+
+summary(first_stage_2sls_45)
+```
+
+```{r}
+exer45$PARTICIPATION_hat <- predict(first_stage_2sls_45)
+
+second_stage_2sls_45 <- lm(data = exer45, GPA ~ PARTICIPATION_hat + GENDER)
+
+summary(second_stage_2sls_45)
+```
+
+### Question c
+
+**Obtain the standard errors that correspond to the final regression in the previous part. These do not match with the standard errors reported in the lecture! Why are the standard errors from part (b) wrong?**
+
+The standard error from the final stage of 2SLS is 0.798. 
+
+## Train Exercise 5-5
+
+### Question a
+
+```{r}
+exer55 <- read_table2(file = 'Lecture_5-5/TrainExer5-5.txt')
+
+mod55 <- glm(data = exer55, 
+             response ~ male + activity + age + I((age/10)**2), 
+             family = 'binomial')
+
+summary(mod55)
+```
+
+### Question b
+
+**The researcher assumes that a value of 1 corresponds with positive response. What happens if we impose that that positive response is zero and negative response equals 1. The new response variable can be obtained from the old response variable by the following transformation respnewi =−respi+1. (All zero observations become one and all one observations become zero).**
+
+```{r}
+exer55 <- exer55 %>%
+  mutate(response_new = ifelse(response == 1, 0, 1))
+
+mod55_b <- glm(data = exer55, 
+               response_new ~ male + activity + age + I((age/10)**2), 
+               family = 'binomial')
+
+summary(mod55_b)
+```
+
+The estimates magnitude are all the same, but the signs changed. Estimates are still valid even if the responses are inverted.
+
+### Question c
+
+**Test the null hypothesis H0: β1 = β2 = 0 versus H1: no restrictions on β1 and β2, using a likelihood ratio test**
+
+```{r}
+# restricted model
+mod55_res <- glm(data = exer55, 
+                 response ~ age + I((age/10)**2), 
+                 family = 'binomial')
+
+lmtest::lrtest(mod55_res, mod55)
+```
+
+The likelihood ratio test statistics is significant at p=0.05. Therefore we reject H0 that b1=b2=0. The set of variables b1 and b2 are significant in the regression.
+
+## Train Exercise 6-1
+
+### Question a
+
+**Use dataset TrainExer61 to make the following graphs: the time series plot of xt against time t, the time series plot of yt against time t, and the scatter plot of yt against xt. What conclusion could you draw from these three graphs?**
+
+```{r}
+exer61 <- read_table2('Lecture_6-1/TrainExer61.txt')
+```
+
+From the time series plot below, we can see that the relation between X and Y do not track each other and looks like a random walk. However, when we plot it into a crossplot, we can see a negative correlation pattern between the two variables. In this case, the correlation might be spurious.
+
+```{r}
+exer61 %>%
+  ggplot(aes(x = as.numeric(row.names(.)))) +
+  geom_line(aes(y = X), color = 'red') +
+  geom_line(aes(y = Y), color = 'blue') +
+  labs(title = 'Time series X and Y')
+```
+
+```{r}
+exer61 %>%
+  ggplot(aes(x = X, y = Y)) +
+  geom_point() +
+  labs(title = 'Cross plot between X and Y')
+```
+
+### Question b
+
+**To check that the series εx t and εy t are uncorrelated, regress εy t on a constant and εx t. Report the t-value and p-value of the slope coefficient.**
+
+```{r}
+exer61_modb <- lm(data = exer61, EPSY ~ EPSX)
+
+summary(exer61_modb)
+```
+The t-value of the slope is < 2, which is not significant at p=0.05. EPSX is not correlated with EPSY
+
+### Question c
+
+**Extend the analysis of part (b) by regressing εy t on a constant, εx t, and three lagged values of εy t and of εx t. Perform the F-test for the joint insignificance of the seven parameters of εx t and the three lags of εx t and εy t. Report the degrees of freedom of the F-test and the numerical outcome of this test, and draw your conclusion. Note: The relevant 5% critical value is 2.0.**
+
+```{r}
+exer61 <- exer61 %>%
+  mutate(EPSX_lag1 = lag(EPSX, 1),
+         EPSX_lag2 = lag(EPSX, 2),
+         EPSX_lag3 = lag(EPSX, 3),
+         EPSY_lag1 = lag(EPSY, 1),
+         EPSY_lag2 = lag(EPSY, 2),
+         EPSY_lag3 = lag(EPSY, 3))
+
+exer61_modc <- lm(data = exer61, EPSY ~ EPSX + EPSX_lag1 + EPSX_lag2 + EPSX_lag3 + EPSY_lag1 + EPSY_lag2 + EPSY_lag3)
+
+summary(exer61_modc)
+```
+
+Summary shows the F statistics of 0.55 and p-value of 0.799. It means that we cannot reject H0 of the slope of sets of variables = 0. The sets of variables are not important in predicting EPSY.
+
+### Question d
+
+**Regress y on a constant and x. Report the t-value and p-value of the slope coefficient. What conclusion would you be tempted to draw if you did not know how the data were generated?**
+
+The regression shows that X is important in predicting Y, however this is a spurious correlation representing the crossplot in Question a.
+
+```{r}
+exer61_modd <- lm(data = exer61, Y ~ X)
+
+summary(exer61_modd)
+```
+
+### Question e
+
+**Let et be the residuals of the regression of part (d). Regress et on a constant and the one-period lagged residual et−1. What standard assumption of regression is clearly violated for the regression in part (d)?**
+
+Here we can see that the residuals are strongly correlated with its lag. Standard assumption of regression includes that residuals are random and uncorrelated.
+
+```{r}
+exer61$residual_modd <- residuals(exer61_modd)
+exer61$residual_modd_lag1 <- lag(exer61$residual_modd)
+
+exer61_mode <- lm(data = exer61, residual_modd ~ residual_modd_lag1)
+
+summary(exer61_mode)
+```
+
+The plot below confirmed this finding.
+
+```{r}
+exer61 %>%
+  ggplot(aes(x = Y, y = residual_modd)) +
+  geom_point()
+```
+
+## Train Excercise 6-4
+
+The datafile TrainExer64 contains the Revenue Passenger Kilometer (RPK) data of two airline companies that were considered in Lecture 6.4. In this exercise, you are asked to perform a set of regressions to check the main results presented in the lecture. For ease of notation, we denote the log of RPK by X1 for company 1 and by X2 for company 2. The first differences ∆X1 and ∆X2 are the yearly growth rates of RPK.
+
+### Question a
+
+**Perform two F-tests, one for the Granger causality of ∆X2 for ∆X1 and the other for the Granger causality of ∆X1 for ∆X2. Include a constant and two lags of both variables in the test equations. Report the degrees of freedom and the numerical values of the two F-tests, and draw your conclusion. The relevant 5% critical value is 3.3.**
+
+```{r}
+exer64 <- read_table2('Lecture_6-4/TrainExer64.txt') %>%
+  mutate(DX1_lag1 = lag(DX1, 1),
+         DX1_lag2 = lag(DX1, 2),
+         DX2_lag1 = lag(DX2, 1),
+         DX2_lag2 = lag(DX2, 2))
+```
+
+First we construct the ADL(2,2) model for DX1 and DX2
+
+```{r}
+adl_dx1 <- lm(data = exer64, DX1 ~ DX1_lag1 + DX1_lag2 + DX2_lag1 + DX2_lag2)
+adl_dx2 <- lm(data = exer64, DX2 ~ DX1_lag1 + DX1_lag2 + DX2_lag1 + DX2_lag2)
+```
+
+In the ADL model for DX1, we see that p-value for t-stats of both DX2 variables are not statistically significant. Need F-test to determine if these sets of variables are important (i.e. do we need DX2 lagged values to predict DX1?).
+
+```{r}
+summary(adl_dx1)
+```
+
+F-test against the null hypothesis resulted in p-value of 0.13, The sets of variable DX2_lag1 and DX2_lag2 are not statistically significant in predicting DX1. Therefore X2 is not Granger causal for X1.
+
+```{r}
+adl_dx1_null <- lm(data = exer64, DX1 ~ DX1_lag1 + DX1_lag2)
+
+anova(adl_dx1_null, adl_dx1)
+```
+
+For DX2, we can see that DX1_lag2 is statistically significant in determining DX2. Need to do F-test to determine the statistical significance of the set of DX1 variables.
+
+```{r}
+summary(adl_dx2)
+```
+
+F-test result below shows statistically significant result at p=0.05. Sets of variables DX1 are significant in determining DX2. Therefore we can say that X1 is Granger causal for X2.
+
+```{r}
+adl_dx2_null <- lm(data = exer64, DX2 ~ DX2_lag1 + DX2_lag2)
+
+anova(adl_dx2_null, adl_dx2)
+```
+
+### Question b
+
+**(i) Perform the Augmented Dickey-Fuller (ADF) test for X1. In the ADF test equation, include (among others) a constant (α), a deterministic trend term (βt), and a single lag of ∆X1. Report the coefficient of X1t−1 and its standard error and t-value, and draw your conclusion.**
+
+**(ii) Perform a similar ADF test for X2.**
+
+**Note that the 5% critical value differs from the usual one, as explained in the lecture.**
+
+(i) Result of the ADF test at lag 1 is shown below. The t-statistics of X1_lag1 is -2.764. In ADF test with deterministic trend, the critical value at p=0.05 is -3.5. Since t-stats of = 2.764 > -3.5, we cannot reject the H0 of non-stationarity. Therefore X1 is not stationary.
+
+```{r}
+exer64 <- exer64 %>%
+  mutate(X1_lag1 = lag(X1, 1),
+         X2_lag1 = lag(X2, 1))
+
+adf_x1 <- lm(data = exer64, DX1 ~ YEAR + X1_lag1 + DX1_lag1)
+
+summary(adf_x1)
+```
+
+Using the same steps, we have t-stats of -1.207 for X2. Since t-stat of -1.207 > -3.5, we cannot reject H0 of non-stationarity, hence X2 is not stationary.
+
+```{r}
+adf_x2 <- lm(data = exer64, DX2 ~ YEAR + X2_lag1 + DX2_lag1)
+
+summary(adf_x2)
+```
+
+### Question c
+
+**Perform the two-step Engle-Granger test for cointegration of the time series X1 and X2. The second-step regression is of the type ∆et = α+ρet−1 +β∆et−1 +ωt, where et are the residuals of step 1. Check that step 1 gives X2t = 0.01 + 0.92X1t. Further, report the regression equation of step 2, perform the test, and draw your conclusion.**
+
+**Note that the 5% critical value differs from the usual one, as explained in the lecture.**
+
+Engle - Granger Test, Step 1: perform regression of X2 on X1
+
+```{r}
+coint_step1 <- lm(data = exer64, X2 ~ X1)
+
+summary(coint_step1)
+```
+
+Engle - Granger Test, Step 2: perform ADF test on residuals of Step 1 regression
+
+Based on the ADF test, the t-stats of lagged residuals from Step 1 is -3.505. Since -3.505 < -3.4, the H0 of residuals nonstationarity is rejected. Therefore, the residuals are stationary, and X1 and X2 are cointegrated.
+
+```{r}
+exer64$coint_step1_resid <- residuals(coint_step1)
+
+exer64 <- exer64 %>%
+  mutate(coint_step1_resid_lag1 = lag(coint_step1_resid),
+         D_coint_step1_resid = coint_step1_resid - lag(coint_step1_resid, 1),
+         D_coint_step1_resid_lag1 = lag(D_coint_step1_resid, 1))
+         
+
+coint_step2 <- lm(data = exer64, D_coint_step1_resid ~ coint_step1_resid_lag1 + D_coint_step1_resid_lag1)
+
+summary(coint_step2)
+```
+
+### Question d
+
+**Finally, estimate an error correction model (ECM) for X1 and also one for X2. In each ECM, include a constant term, a single own lagged term, and the error correction term X2,t−1 − 0.92X1t−1 obtained from the first step of Engle-Granger in part (c). Provide an interpretation of the results in terms of mechanisms that correct for disequilibrium.**
+
+ECM for X1 and X2
+
+```{r}
+ecm_x1 <- lm(data = exer64, DX1 ~ DX1_lag1 + I(X2_lag1 - 0.92 * X1_lag1))
+ecm_x2 <- lm(data = exer64, DX2 ~ DX2_lag1 + I(X2_lag1 - 0.92 * X1_lag1))
+```
+
+With the error correcting term, whenever X2_lag1 is too large, it will increase the DX1 (since coefficient of the error correcting term is positive) and therefore the X1 is also increased.
+
+```{r}
+summary(ecm_x1)
+```
+
+With the error correcting term, whenever X2_lag1 is too large, it will decrease the DX2 (since coefficient of the error correcting term is negative) and therefore the X2 is also decreased.
+
+```{r}
+summary(ecm_x2)
+```
+
+## Train Excercise 6-5
+
+### Question a
+
+**Make time series plots of log(IP) and log(CLI), and also of the yearly growth rates GIP and GCLI. What conclusions do you draw from these plots?**
+
+```{r}
+exer65 <- read_table2('Lecture_6-5/TrainExer65.txt')
+
+exer65_train <- filter(exer65, YEAR <= 2002)
+exer65_test <- filter(exer65, YEAR > 2002)
+```
+
+The time series LOGIP and LOGCLI is not stationary and has an upward trend. However it might be cointegrated.
+
+```{r}
+exer65_train %>%
+  gather(key = 'metric', value = 'value', -YEAR) %>%
+  filter(metric == 'LOGIP' | metric == 'LOGCLI') %>%
+  ggplot(aes(x = YEAR, y = value, color = metric)) +
+  geom_line()
+```
+
+Meanwhile the growth rates GIP and GCLI is probably stationary, however we need to check it statistically.
+
+```{r}
+exer65_train %>%
+  gather(key = 'metric', value = 'value', -YEAR) %>%
+  filter(metric == 'GIP' | metric == 'GCLI') %>%
+  ggplot(aes(x = YEAR, y = value, color = metric)) +
+  geom_line()
+```
+
+### Question b
+
+**(i) Perform the Augmented Dickey-Fuller (ADF) test for log(IP). In the ADF test equation, include (among others) a constant (α), a deterministic trend term (βt), and two lags of GIP = ∆log(IP). Report the coefficient of log(IPt−1) and its standard error and t-value, and draw your conclusion.**
+
+**(ii) Perform a similar ADF test for log(CLI).**
+
+For question b(i), the coefficient of LOGIP_lag1 is -0.275, standard error is 0.101, and t-value is -2.706. Since t-value -2.706 > -3.5, we cannot reject H0 of non-stationarity. Therefore LOGIP is non-stationary.
+
+```{r}
+exer65_train <- exer65_train %>%
+  mutate(LOGIP_lag1 = lag(LOGIP, 1),
+         GIP_lag1 = lag(GIP, 1),
+         GIP_lag2 = lag(GIP, 2),
+         LOGCLI_lag1 = lag(LOGCLI, 1),
+         GCLI_lag1 = lag(GCLI, 1),
+         GCLI_lag2 = lag(GCLI, 2))
+
+adf_exer65b_1 <- lm(data = exer65_train, GIP ~ YEAR + LOGIP_lag1 + GIP_lag1 + GIP_lag2)
+
+summary(adf_exer65b_1)
+```
+
+For question b(ii), LOGCLI_lag1 coefficient is -0.24, standard error is 0.127, and t-value is -1.885. LOGCLI is also non-stationary.
+
+```{r}
+adf_exer65b_2 <- lm(data = exer65_train, GCLI ~ YEAR + LOGCLI_lag1 + GCLI_lag1 + GCLI_lag2)
+
+summary(adf_exer65b_2)
+```
+
+### Question c
+
+**Perform the two-step Engle-Granger test for cointegration of the time series log(IP) and log(CLI). The secondstep regression is of the type ∆et = α + βt + ρet−1 + β1∆et−1 + β2∆et−2 + ωt, where et are the residuals of step 1. What is your conclusion?**
+
+**Note that the 5% critical value differs from the usual one, see lecture 6.3.**
+
+Step 1: Do LOGIP ~ LOGCLI regression
+
+```{r}
+eg_step1_exer65c <- lm(data = exer65_train, LOGIP ~ LOGCLI)
+```
+
+Step 2: Do resid_diff ~ YEAR + resid_lag1 + resid_diff_lag1 + resid_diff_lag2 regression, with residuals from step 1, then look at resid_lag1 t-value. (Basically an ADF test on the residuals).
+
+Based on the result, the coefficient of resid_lag1 is -0.177, t-value is -1.757. Since t-value -1.757 > -3.8, we cannot reject H0 of non-stationarity of the residuals from step 1. Therefore, LOGIP and LOGCLI are not cointegrated.
+
+```{r}
+exer65_train$resid <- residuals(eg_step1_exer65c)
+
+exer65_train <- exer65_train %>%
+  mutate(resid_lag1 = lag(resid, 1),
+         resid_diff = resid - resid_lag1,
+         resid_diff_lag1 = lag(resid_diff, 1),
+         resid_diff_lag2 = lag(resid_diff, 2))
+
+eg_step2_exer65c <- lm(data = exer65_train, resid_diff ~ YEAR + resid_lag1 + resid_diff_lag1 + resid_diff_lag2)
+
+summary(eg_step2_exer65c)
+```
+
+### Question d
+
+**Perform two F-tests, one for the Granger causality of GIP for GCLI and the other for the Granger causality of GCLI for GIP. Include a constant and two lags of both variables in the test equations. Report the degrees of freedom and the numerical values of the two F-tests, and draw your conclusion. The relevant 5% critical value is 3.3.**
+
+First we construct two ADL(1,2) models for both GIP and GCLI
+
+```{r}
+adl_gip_exer65d <- lm(data = exer65_train, GIP ~ GIP_lag1 + GIP_lag2 + GCLI_lag1 + GCLI_lag2)
+adl_gcli_exer65d <- lm(data = exer65_train, GCLI ~ GCLI_lag1 + GCLI_lag2 + GIP_lag1 + GIP_lag2)
+```
+
+Then we perform F-test against their respective null models. For the F-test of GCLI for GIP, the result is statsig and therefore we can conclude that GCLI is Granger causal for GIP 
+
+```{r}
+adl_gip_exer65d_granger_null <- lm(data = exer65_train, GIP ~ GIP_lag1 + GIP_lag2)
+adl_gcli_exer65d_granger_null <- lm(data = exer65_train, GCLI ~ GCLI_lag1 + GCLI_lag2)
+
+anova(adl_gip_exer65d_granger_null, adl_gip_exer65d)
+```
+
+Meanwhile on GIP for GCLI F-test, the result is not statsig at p=0.05. Therefore GIP is not Granger causal for GCLI.
+
+```{r}
+anova(adl_gcli_exer65d_granger_null, adl_gcli_exer65d)
+```
+
+### Question e
+
+**Show that the coefficients of both lags in an AR(2) model for GIP are insignificant. Show also that even the slope coefficient in the AR(1) model GIPt = α + βGIPt−1 + εt is insignificant. Make two forecasts for GIP for the five years from 2003-2007, one from the AR(1) model and another from the simple model GIPt = α + εt.**
+
+```{r}
+ar2_gip_exer65e <- lm(data = exer65_train, GIP ~ GIP_lag1 + GIP_lag2)
+ar1_gip_exer65e <- lm(data = exer65_train, GIP ~ GIP_lag1)
+ar0_gip_exer65e <- lm(data = exer65_train, GIP ~ 1)
+
+summary(ar2_gip_exer65e)
+```
+```{r}
+summary(ar1_gip_exer65e)
+```
+
+Result from both models are not satisfying, as shown below.
+
+```{r}
+exer65_test <- exer65_test %>%
+  mutate(LOGIP_lag1 = lag(LOGIP, 1),
+         GIP_lag1 = lag(GIP, 1),
+         GIP_lag2 = lag(GIP, 2),
+         LOGCLI_lag1 = lag(LOGCLI, 1),
+         GCLI_lag1 = lag(GCLI, 1),
+         GCLI_lag2 = lag(GCLI, 2))
+
+exer65_test$GIP_pred_ar1 <- predict(ar1_gip_exer65e, newdata = exer65_test)
+exer65_test$GIP_pred_ar0 <- predict(ar0_gip_exer65e, newdata = exer65_test)
+
+exer65_test %>%
+  gather(key = 'metric', value = 'value', -YEAR) %>%
+  filter(metric %in% c('GIP', 'GIP_pred_ar1', 'GIP_pred_ar0')) %>%
+  ggplot(aes(x = YEAR, y = value, color = metric)) +
+  geom_line()
+```
+
+### Question f
+
+**Estimate the ADL(2,2) model GIPt = α + β1GIPt−1 + β2GIPt−2 + γ1GCLIt−1 + γ2GCLIt−2 + εt, and show by means of an F-test that the null hypothesis that β1 = β2 = γ2 = 0 is not rejected. Then estimate the ADL(0,1) model GIPt = α + γGCLIt−1 + εt and use this model to forecast GIP for the five years from 2003-2007.**
+
+ADL(2,2) model for GIP is available from solution d. Next we need to check against null model of GIP ~ GCLI_lag1. The F-test result is not significant, therefore the extra set of variables are not important. We will proceed by using the simple model.
+
+```{r}
+gip_null_exer65f <- lm(data = filter(exer65_train, YEAR > 1961), GIP ~ GCLI_lag1)
+
+anova(gip_null_exer65f, adl_gip_exer65d)
+```
+
+ADL(0,1) model still have discrepancy with the actual data, but trend is better compared with AR models from previous sections.
+
+```{r}
+exer65_test$GIP_pred_adl01 <- predict(gip_null_exer65f, newdata = exer65_test)
+
+exer65_test %>%
+  gather(key = 'metric', value = 'value', -YEAR) %>%
+  filter(metric %in% c('GIP', 'GIP_pred_ar1', 'GIP_pred_ar0', 'GIP_pred_adl01')) %>%
+  ggplot(aes(x = YEAR, y = value, color = metric)) +
+  geom_line()
+```
+
+### Question g
+
+**Compare the three series of forecasts of parts (e) and (f) by computing their values of the root mean squared error (RMSE), mean absolute error (MAE), and the sum of the forecast errors (SUM). Check that it seems quite difficult to forecast the IP growth rates for 2003-2007 from models estimated from 1960-2002. Can you think of possible reasons why this is the case?**
+
+```{r}
+rmse <- function(actual, predicted){
+  sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+}
+
+mae <- function(actual, predicted){
+  mean(abs(actual - predicted), na.rm = TRUE)
+}
+
+sum_forecast_error <- function(actual, predicted){
+  sum(actual - predicted, na.rm = TRUE)
+}
+```
+
+A naive model with only constant (AR(0) model) performed better than AR(1) and ADL(0,1) based on the metrics below. This is possibly due to the change in global economy causing breakage during milennium era. Therefore the good performance of CLI in predicting industrial output in 1960-2002 breaks down in recent years.
+
+```{r}
+tibble(model = c('AR(0)', 'AR(1)', 'ADL(0,1)'),
+       rmse = c(rmse(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar0), rmse(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar1), rmse(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_adl01)),
+       mae = c(mae(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar0), mae(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar1), mae(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_adl01)),
+       sum_forecast_error = c(sum_forecast_error(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar0), sum_forecast_error(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_ar1), sum_forecast_error(actual = exer65_test$GIP, predicted = exer65_test$GIP_pred_adl01)))
+```
+
+
+
+
+
